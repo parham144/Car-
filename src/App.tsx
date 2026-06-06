@@ -140,7 +140,7 @@ export default function App() {
             </div>
             <div className="text-right">
               <h1 className="text-lg font-black tracking-tight text-slate-800 flex items-center gap-1.5 justify-end">
-                <span>قیمت‌یاب هوشمند قطعات مصرفی خودرو</span>
+                <span>اوس عماد - قیمت‌یاب هوشمند قطعات مصرفی خودرو</span>
                 <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 font-bold font-mono">
                   v3.5 Beta
                 </span>
@@ -325,7 +325,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div>
                   <span className="text-[10px] text-blue-600 font-bold tracking-widest uppercase block mb-1">گزارش آنالیز خودرو</span>
-                  <h2 className="text-2xl font-black text-slate-800">{result.carModelName}</h2>
+                  <h2 className="text-2xl font-black text-slate-800">اوس عماد - آنالیز {result.carModelName}</h2>
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-2">

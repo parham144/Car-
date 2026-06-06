@@ -23,7 +23,7 @@ export const OusEmadChat: React.FC<OusEmadChatProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Initialize with a welcome message from Ous Emad specifying the selected car
   useEffect(() => {
@@ -44,9 +44,14 @@ export const OusEmadChat: React.FC<OusEmadChatProps> = ({
     }
   }, [prefilledPrompt]);
 
-  // Scroll to bottom on updates
+  // Scroll to bottom of chat messages window container smoothly (no outer page scroll)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   }, [messages, isLoading]);
 
   const handleSendMessage = async (textToSend: string) => {
@@ -124,7 +129,7 @@ export const OusEmadChat: React.FC<OusEmadChatProps> = ({
       </div>
 
       {/* Messages Window */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50">
+      <div ref={scrollContainerRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50">
         {messages.map((msg, i) => {
           const isUser = msg.sender === "user";
           const isSystem = msg.sender === "system";
@@ -164,7 +169,6 @@ export const OusEmadChat: React.FC<OusEmadChatProps> = ({
             <span className="text-[10px] text-slate-500 mr-2">اوس عماد در حال نوشتن پاسخ...</span>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Preset Fast Queries */}

@@ -28,7 +28,7 @@ export const PopularCars: React.FC<PopularCarsProps> = ({ onSelectCar }) => {
     <div id="popular-cars-container" className="mt-4 transition-opacity duration-300">
       <div className="flex items-center gap-2 mb-4">
         <Car className="w-5 h-5 text-blue-600" />
-        <h2 className="text-lg font-bold text-slate-800">پیشنهادهای بازار لوازم یدکی (کلیک سریع)</h2>
+        <h2 className="text-lg font-bold text-slate-800">اوس عماد - پیشنهادهای بازار لوازم یدکی (کلیک سریع)</h2>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {POPULAR_CARS.map((car, idx) => (
