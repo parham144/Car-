@@ -69,6 +69,19 @@ export default function App() {
     return () => clearInterval(timer);
   }, [isLoading]);
 
+  // Scroll to dashboard once result is ready
+  useEffect(() => {
+    if (result) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById("analysis-dashboard");
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [result]);
+
   const handleSearch = async (targetCarName: string) => {
     const trimmed = targetCarName.trim();
     if (!trimmed) return;
