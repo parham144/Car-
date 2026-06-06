@@ -27,8 +27,8 @@ import {
 } from "./utils";
 
 const LOADING_STEPS = [
-  "اوس عماد در حال پوشیدن لباس کاره...",
-  "درحال مراجعه به لوازم یدکی بازار چراغ‌برق تهران...",
+  "اوس عماد در حال آماده‌سازی ابزارهای فنی...",
+  "درحال جستجو در بازار لوازم یدکی و قطعات معتبر تهران...",
   "استعلام گرفتن آخرین نرخ مصوب لنت ترمز و تسمه‌ها...",
   "محاسبه بر اساس بازار آزاد و نرخ‌های جدید سال ۱۴۰۵...",
   "بررسی روغن‌های مجاز و مایعات استاندارد موتور...",
@@ -145,7 +145,7 @@ export default function App() {
                   v3.5 Beta
                 </span>
               </h1>
-              <span className="text-xs text-slate-450 block font-medium">استعلام آنلاین لایه مصرفی‌ها و تحلیل قیمت روز بازار چراغ‌برق</span>
+              <span className="text-xs text-slate-450 block font-medium">استعلام آنلاین لایه مصرفی‌ها و تحلیل قیمت روز بازار لوازم یدکی تهران</span>
             </div>
           </div>
           <div className="text-xs text-slate-500 font-medium text-center sm:text-left bg-slate-100/60 px-3 py-1.5 rounded-lg border border-slate-200">
@@ -358,7 +358,7 @@ export default function App() {
                     سیمولاتور صنف
                   </span>
                   <span>
-                    دوست من! به علت عدم راه‌اندازی کلید API یا محدودیت کلوپ ابری، این اطلاعات به طریقه آفلاین مطمئن چراغ‌برق برآورد شده است. تخمین قیمت‌ها همگی کاملاً واقعی و به‌روز هستند!
+                    کاربر گرامی! به علت عدم وجود کلید فعال API یا محدودیت موقت اتصال ابری، این اطلاعات بر اساس محاسبات شبیه‌ساز آفلاینِ بازار لوازم یدکی و قطعات تهران برآورد شده است. تخمین قیمت‌ها همگی بر اساس آخرین تغییرات بازار هستند.
                   </span>
                 </div>
               )}
@@ -552,7 +552,7 @@ export default function App() {
       <footer className="border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-450 mt-16 mt-auto">
         <div className="max-w-7xl mx-auto px-4 space-y-2">
           <p className="font-sans leading-relaxed text-slate-500">
-            تمامی قیمت‌های ارائه شده در این کاوشگر به صورت حدودی و برآورد آخرین اطلاعات میدانی بازار لوازم یدکی تهران (چراغ‌برق) و اتحادیه‌های صنف در سال ۱۴۰۵ می‌باشد.
+            تمامی قیمت‌های ارائه شده در این کاوشگر به صورت حدودی و برآورد آخرین اطلاعات میدانی بازار لوازم یدکی و قطعات تهران و اتحادیه‌های صنف در سال ۱۴۰۵ می‌باشد.
           </p>
           <p className="font-mono text-[10px] text-slate-400">
             Powered by Google Gemini 3.5 & AI Studio Build. Farsi localization template.

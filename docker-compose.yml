@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  auto-parts-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auto_parts_analyzer
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Add your API keys here or create a .env file next to this docker-compose.yml
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
