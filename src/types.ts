@@ -32,6 +32,7 @@ export interface CarConsumablesResponse {
   categories: PartCategory[];
   commonTroubles: CommonTrouble[];
   isOfflineData?: boolean;
+  isQuotaError?: boolean;
 }
 
 export interface SearchHistoryItem {

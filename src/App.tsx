@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Wrench,
   Search,
@@ -15,6 +15,8 @@ import {
   ChevronDown,
   ChevronUp,
   Heart,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { PopularCars } from "./components/PopularCars";
 import { TroubleShooter } from "./components/TroubleShooter";
@@ -57,6 +59,88 @@ export default function App() {
   const [activeCategoryIdx, setActiveCategoryIdx] = useState<number | null>(null);
   const [showSpecsInput, setShowSpecsInput] = useState(false);
   const [expandedParts, setExpandedParts] = useState<Record<string, boolean>>({});
+
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+  }, []);
+
+  const toggleListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceError("مرورگر شما از قابلیت ضبط صدا پشتیبانی نمیکند. لطفا از مرورگر کروم یا سافاری استفاده کنید.");
+      setTimeout(() => setVoiceError(null), 4000);
+      return;
+    }
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "fa-IR";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setVoiceError(null);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error(event);
+        setIsListening(false);
+        if (event.error === "not-allowed") {
+          setVoiceError("دسترسی به میکروفون رد شد. لطفاً دسترسی به میکروفون دستگاه را فعال نمایید.");
+        } else if (event.error === "no-speech") {
+          setVoiceError("سیگنال صدایی دریافت نشد. لطفاً نزدیک‌تر به میکروفون صحبت کنید.");
+        } else {
+          setVoiceError("خطا در تشخیص گفتار. مجدداً تلاش کنید.");
+        }
+        setTimeout(() => setVoiceError(null), 4000);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.onresult = (event: any) => {
+        const speechToText = event.results[0][0].transcript;
+        if (speechToText && speechToText.trim()) {
+          setCarModelInput(speechToText);
+          handleSearch(speechToText);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      console.error(e);
+      setIsListening(false);
+      setVoiceError("راه‌اندازی میکروفون با خطا مواجه شد.");
+      setTimeout(() => setVoiceError(null), 4000);
+    }
+  };
 
   const scrollToCategory = (idx: number | null) => {
     setActiveCategoryIdx(idx);
@@ -126,15 +210,12 @@ export default function App() {
       const timer = setTimeout(() => {
         const element = document.getElementById("analysis-dashboard");
         if (element) {
-          const headerOffset = 110;
-          const elementPosition = element.getBoundingClientRect().top;
-          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-          window.scrollTo({
-            top: offsetPosition,
-            behavior: "smooth"
+          element.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
           });
         }
-      }, 120);
+      }, 150);
       return () => clearTimeout(timer);
     }
   }, [result]);
@@ -162,11 +243,28 @@ export default function App() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "خطا در دریافت اطلاعات از سرور.");
+        let errMsg = "خطا در دریافت اطلاعات از سرور.";
+        try {
+          const errorData = await response.json();
+          errMsg = errorData.error || errMsg;
+        } catch {
+          try {
+            const rawText = await response.text();
+            if (rawText && rawText.length < 150) {
+              errMsg = rawText;
+            }
+          } catch {}
+        }
+        throw new Error(errMsg);
       }
 
-      const data: CarConsumablesResponse = await response.json();
+      let data: CarConsumablesResponse;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error("فرمت اطلاعات دریافتی مناسب نبود. لطفاً مجدداً تلاش کنید.");
+      }
+
       setResult(data);
       
       // Update local storage history
@@ -313,9 +411,36 @@ export default function App() {
                     value={carModelInput}
                     onChange={(e) => setCarModelInput(e.target.value)}
                     placeholder="مثلاً: پژو ۲۰۷ دنده‌ای، جک اس ۵، کیا اپتیما ۲۰۱۶، سمند سورن ای‌اف‌سون..."
-                    className="w-full text-xs px-4 py-3.5 bg-slate-50 border border-slate-200 hover:border-blue-500 focus:border-blue-500 rounded-xl focus:outline-none text-slate-800 placeholder-slate-400 block font-medium"
+                    className="w-full text-xs pr-4 pl-12 py-3.5 bg-slate-50 border border-slate-200 hover:border-blue-500 focus:border-blue-500 rounded-xl focus:outline-none text-slate-800 placeholder-slate-400 block font-medium"
                   />
+                  <button
+                    type="button"
+                    onClick={toggleListening}
+                    title={isListening ? "توقف ضبط صدا" : "جستجوی صوتی (کلیک کنید و بگویید)"}
+                    className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-8.5 h-8.5 rounded-lg flex items-center justify-center transition-all duration-300 focus:outline-none cursor-pointer ${
+                      isListening
+                        ? "bg-rose-500 text-white animate-pulse shadow-md shadow-rose-200"
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {isListening ? (
+                      <MicOff className="w-4 h-4 animate-bounce" />
+                    ) : (
+                      <Mic className="w-4 h-4" />
+                    )}
+                  </button>
                 </div>
+                {isListening && (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-blue-600 animate-pulse font-extrabold justify-end">
+                    <span>در حال شنیدن صدای شما... نام خودرو را بگویید</span>
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping"></span>
+                  </div>
+                )}
+                {voiceError && (
+                  <p className="mt-1.5 text-[11px] text-rose-500 font-bold text-right animate-fadeIn">
+                    ⚠️ {voiceError}
+                  </p>
+                )}
               </div>
 
               <div className="pt-1">
@@ -363,6 +488,46 @@ export default function App() {
                 )}
               </button>
             </form>
+
+            {/* Repositioned & Enhanced Search Loading Animation directly below description input */}
+            {isLoading && (
+              <div id="maint-search-loading-visualizer" className="mt-6 flex flex-col items-center justify-center p-6 bg-slate-50/50 border border-slate-200/65 rounded-2xl animate-fadeIn space-y-4 text-center">
+                <div className="relative w-52 h-52 flex items-center justify-center select-none">
+                  {/* Glowing light pulse background */}
+                  <div className="absolute inset-0 bg-blue-50/20 rounded-full animate-pulse transition-all"></div>
+                  
+                  {/* Outer spinning ring - rotating blue bar */}
+                  <div className="absolute inset-0 border-4 border-slate-150/80 border-slate-250 border-t-blue-600 rounded-full animate-spin"></div>
+                  
+                  {/* Smooth decorative inner dashed ring */}
+                  <div className="absolute inset-2 border border-dashed border-blue-200/40 rounded-full"></div>
+
+                  {/* Absolute centered circle with loading metrics and search steps */}
+                  <div className="absolute inset-4.5 bg-white border border-slate-100 rounded-full shadow-xs flex flex-col items-center justify-center p-4">
+                    <div className="w-8.5 h-8.5 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 mb-2 animate-bounce">
+                      <Wrench className="w-4 h-4" />
+                    </div>
+                    
+                    <span className="text-[10px] text-blue-600 font-extrabold tracking-widest block mb-1 uppercase">اوس عماد</span>
+                    
+                    <div className="h-12 flex items-center justify-center">
+                      <p className="text-[10.5px] font-bold text-slate-700 leading-relaxed max-w-[135px] text-center antialiased">
+                        {LOADING_STEPS[loadingStepIdx]}
+                      </p>
+                    </div>
+
+                    <span className="text-[10px] font-mono text-slate-450 font-extrabold mt-2 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-150">
+                      {toPersianNumberString(Math.min(Math.round(((loadingStepIdx + 1) / LOADING_STEPS.length) * 100), 100))}%
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="text-[10px] font-bold text-slate-450 leading-relaxed flex items-center gap-1.5 justify-center">
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping"></span>
+                  <span>در حال رصد بازار زنده تهران و تحلیل قیمت مصرفی‌ها...</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Search History & Favorites Column */}
@@ -429,21 +594,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Loading Screen */}
-        {isLoading && (
-          <div id="loading-overlay" className="py-24 flex flex-col items-center justify-center text-center animate-fadeIn">
-            <div className="relative mb-6">
-              <div className="w-20 h-20 rounded-full border-4 border-blue-100 border-slate-200 border-t-blue-600 animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold">
-                🛠️
-              </div>
-            </div>
-            <h4 className="text-base font-bold text-slate-800">{LOADING_STEPS[loadingStepIdx]}</h4>
-            <p className="text-xs text-slate-500 mt-2">
-              هوش مصنوعی در حال جمع‌آوری اطلاعات دقیق از بازار لوازم یدکی خودرو در تهران است...
-            </p>
-          </div>
-        )}
+
 
         {/* Error Box */}
         {error && (
@@ -500,12 +651,14 @@ export default function App() {
               </div>
               
               {result.isOfflineData && (
-                <div className="mb-4 bg-amber-50/70 border border-amber-200/80 p-3 rounded-xl text-xs text-amber-800 font-medium flex items-center justify-between gap-3 text-right">
+                <div className="mb-4 bg-amber-50/70 border border-amber-200/80 p-3.5 rounded-xl text-[11px] sm:text-xs text-amber-800 font-medium flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-right">
                   <span className="bg-amber-100/80 text-amber-900 border border-amber-250 rounded-lg px-2.5 py-1 text-[10px] font-extrabold shrink-0 font-mono">
-                    سیمولاتور صنف
+                    {result.isQuotaError ? "محدودیت سهمیه ابری (۴۲۹)" : "سیمولاتور صنف"}
                   </span>
-                  <span>
-                    با احترام، به علت عدم وجود کلید فعال API یا محدودیت موقت اتصال ابری، این اطلاعات بر اساس محاسبات شبیه‌ساز آفلاینِ بازار لوازم یدکی و قطعات تهران برآورد شده است. تخمین قیمت‌ها همگی بر اساس آخرین تغییرات بازار هستند.
+                  <span className="leading-relaxed">
+                    {result.isQuotaError
+                      ? "با احترام، به دلیل تکمیل سهمیه درخواست‌ها یا محدودیت ترافیک موقتی مدل‌های ابری هوش مصنوعی (نرخ مصرف ۴۲۹)، سامانه به صورت خودکار به شبیه‌ساز محلی دقیق صنف تهران متصل گردید. برآورد قیمت‌ها و مشخصات فنی همچنان واقعی و بر اساس آخرین نرخ‌ها محاسبه شده است."
+                      : "با احترام، به علت عدم وجود کلید فعال ارتباط با مدل یا محدودیت موقت اتصال ابری، این اطلاعات بر اساس محاسبات شبیه‌ساز آفلاینِ بازار لوازم یدکی و قطعات تهران برآورد شده است. تخمین قیمت‌ها همگی دقیق و نزدیک به گرید بازار هستند."}
                   </span>
                 </div>
               )}

@@ -1,6 +1,6 @@
 {
   "name": "قیمت قطعات مصرفی خودرو",
   "description": "سامانه هوشمند دریافت لیست قطعات مصرفی خودرو و استعلام حدود قیمت روز بازار ایران به زبان فارسی",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

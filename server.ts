@@ -808,13 +808,17 @@ app.get("/api/debug-env", async (req, res) => {
 
 // API endpoint to get car consumable parts in Persian
 app.post("/api/car-parts", async (req, res) => {
-  const { carModel, specifications } = req.body;
-
-  if (!carModel || typeof carModel !== "string") {
-    return res.status(400).json({ error: "لطفاً مدل خودرو را به درستی وارد کنید." });
-  }
-
+  let carModel = "";
+  let specifications = "";
   try {
+    const body = req.body || {};
+    carModel = typeof body.carModel === "string" ? body.carModel : "";
+    specifications = typeof body.specifications === "string" ? body.specifications : "";
+
+    if (!carModel) {
+      return res.status(400).json({ error: "لطفاً مدل خودرو را به درستی وارد کنید." });
+    }
+
     const prompt = `
 تو یک تعمیرکار متخصص، کارشناس نگهداری خودرو و تحلیل‌گر بازار لوازم یدکی و قطعات خودرو در ایران هستی.
 همیشه و قبل از پیاده‌سازی نتایج فیلدها، با ابزار جستجوی گوگل (Google Search) قیمت زنده هر یک از قطعات مصرفی خودروی "${carModel}" را با وب تحقیق و استعلام کن:
@@ -1066,11 +1070,19 @@ app.post("/api/car-parts", async (req, res) => {
       finalJSONOutput = generateOfflineCarParts(carModel, specifications);
     }
 
+    const hasQuotaError = Array.isArray(errorsLog) && errorsLog.some(err => isQuotaError(err));
+    if (hasQuotaError && finalJSONOutput) {
+      finalJSONOutput.isQuotaError = true;
+    }
+
     return res.json(postProcessOutput(finalJSONOutput));
   } catch (error: any) {
     console.error("AI Generation Critical Error, falling back to offline simulation anyway:", error);
     try {
-      const offlineOutput = generateOfflineCarParts(carModel, specifications);
+      const offlineOutput = generateOfflineCarParts(carModel, specifications) as any;
+      if (offlineOutput) {
+        offlineOutput.isQuotaError = isQuotaError(error);
+      }
       return res.json(postProcessOutput(offlineOutput));
     } catch (fallbackErr) {
       return res.status(500).json({
@@ -1082,13 +1094,23 @@ app.post("/api/car-parts", async (req, res) => {
 
 // Extra Q&A Chat endpoint for custom user queries regarding the analyzed car (e.g. asking for diy tips)
 app.post("/api/car-parts/chat", async (req, res) => {
-  const { carModel, partName, userMessage, chatHistory } = req.body;
+  let carModel = "";
+  let partName = "";
+  let userMessage = "";
+  let chatHistory: any = null;
 
-  if (!carModel || !userMessage) {
-    return res.status(400).json({ error: "مدل خودرو و پیام کاربر الزامی هستند." });
-  }
+  try {
+    const body = req.body || {};
+    carModel = typeof body.carModel === "string" ? body.carModel : "";
+    partName = typeof body.partName === "string" ? body.partName : "";
+    userMessage = typeof body.userMessage === "string" ? body.userMessage : "";
+    chatHistory = body.chatHistory;
 
-  const chatInstruction = `تو یک کارشناس و مشاور فنی لوازم یدکی و قطعات خودروی مجرب، با حوصله و با سلیقه ایرانی هستی که به زبان رسمی، محترمانه و دقیق به کاربران کمک می‌کنی. نام تخصص تو "اوس عماد" است. اطلاعات بسیار کاملی درباره خودروها، قطعات یدکی، لوازم مصرفی، نحوه تشخیص قطعه تقلبی از اصلی، هزینه‌های واقعی اجرت تعویض در صنف مکانیک‌های ایران داری. 
+    if (!carModel || !userMessage) {
+      return res.status(400).json({ error: "مدل خودرو و پیام کاربر الزامی هستند." });
+    }
+
+    const chatInstruction = `تو یک کارشناس و مشاور فنی لوازم یدکی و قطعات خودروی مجرب، با حوصله و با سلیقه ایرانی هستی که به زبان رسمی، محترمانه و دقیق به کاربران کمک می‌کنی. نام تخصص تو "اوس عماد" است. اطلاعات بسیار کاملی درباره خودروها، قطعات یدکی، لوازم مصرفی، نحوه تشخیص قطعه تقلبی از اصلی، هزینه‌های واقعی اجرت تعویض در صنف مکانیک‌های ایران داری. 
 اگر کاربر درباره قیمت و خرید قطعه‌ای سوالی پرسید یا استعلام قیمت کارخانه و بازار خواست، با ابزار گوگل سرچ که در اختیار داری قیمت را مستقیماً از سایت دیجی‌کالا (digikala.com) استعلام کن و اگر موجود نداشت، از بهترین مراجع آنلاین لوازم یدکی ایران (مثل ترب torob.com، یدک کالا یا یدک‌یاب) قیمت معتبر و به‌روز بده.
 همیشه راهنمایی‌های ملموس، ترفندهای دقیق و علائم قطعی نقص فنی را ارائه کن. کاربر درباره خودرو "${carModel}" و احتمالاً قطعه خاص "${partName || "عمومی"}" سوالی دارد. به زبان فارسی پاسخ بده و از اصطلاحات فنی استاندارد صنف تعمیرکاران با احتیاط و جذاب استفاده کن (مانند آب‌بندی، سه کار کردن، رگلاژ، واشر زدن، یاتاقان، کمپرس سیلندر و غیره).
 
@@ -1101,7 +1123,6 @@ app.post("/api/car-parts/chat", async (req, res) => {
 "با احترام، حوزه تخصصی بنده صرفاً مشاوره فنی خودرو، عیب‌یابی مکانیکی و بررسی برآورد قیمت قطعات یدکی است؛ از پاسخ‌گویی به مباحث متفرقه خارج از این حوزه معذورم. خوشحال می‌شوم سوالات تخصصی درباره خودروی ${carModel} را مجدداً مطرح فرمایید." 
 سپس بلافاصله بحث را به وضعیت خودروی فعلی "${carModel}" بازگردان.`;
 
-  try {
     let chatReply: string | null = null;
 
     if (ai) {

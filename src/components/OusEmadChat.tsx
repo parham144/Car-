@@ -81,7 +81,12 @@ export const OusEmadChat: React.FC<OusEmadChatProps> = ({
         throw new Error("خطا در پاسخ سرور اوس عماد");
       }
 
-      const data = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error("فرمت اطلاعات دریافتی مناسب نبود.");
+      }
 
       setMessages((prev) => [
         ...prev,
