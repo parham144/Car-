@@ -54,3 +54,15 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
 }
+
+export interface MaintenanceRecord {
+  id: string;
+  carModel: string;
+  partName: string;
+  lastReplacementDate: string; // YYYY-MM-DD
+  lastReplacementMileage: number;
+  currentMileage: number;
+  averageLifespanMileage: number;
+  averageLifespanMonths: number;
+}
+

@@ -20,6 +20,7 @@ import { PopularCars } from "./components/PopularCars";
 import { TroubleShooter } from "./components/TroubleShooter";
 import { OusEmadChat } from "./components/OusEmadChat";
 import { FavoritesList } from "./components/FavoritesList";
+import { MaintenanceTracker } from "./components/MaintenanceTracker";
 import { CarConsumablesResponse, SearchHistoryItem, FavoritePart } from "./types";
 import {
   formatPriceToman,
@@ -52,7 +53,7 @@ export default function App() {
   const [favorites, setFavorites] = useState<FavoritePart[]>([]);
   
   // Tab states
-  const [activeTab, setActiveTab] = useState<"parts" | "diagnostics" | "chat">("parts");
+  const [activeTab, setActiveTab] = useState<"parts" | "diagnostics" | "chat" | "maintenance">("parts");
   const [activeCategoryIdx, setActiveCategoryIdx] = useState<number | null>(null);
   const [showSpecsInput, setShowSpecsInput] = useState(false);
   const [expandedParts, setExpandedParts] = useState<Record<string, boolean>>({});
@@ -78,7 +79,7 @@ export default function App() {
     }, 50);
   };
 
-  const handleTabChange = (tab: "parts" | "diagnostics" | "chat") => {
+  const handleTabChange = (tab: "parts" | "diagnostics" | "chat" | "maintenance") => {
     setActiveTab(tab);
     if (tab === "parts") {
       setActiveCategoryIdx(null);
@@ -504,7 +505,7 @@ export default function App() {
                     سیمولاتور صنف
                   </span>
                   <span>
-                    کاربر گرامی! به علت عدم وجود کلید فعال API یا محدودیت موقت اتصال ابری، این اطلاعات بر اساس محاسبات شبیه‌ساز آفلاینِ بازار لوازم یدکی و قطعات تهران برآورد شده است. تخمین قیمت‌ها همگی بر اساس آخرین تغییرات بازار هستند.
+                    با احترام، به علت عدم وجود کلید فعال API یا محدودیت موقت اتصال ابری، این اطلاعات بر اساس محاسبات شبیه‌ساز آفلاینِ بازار لوازم یدکی و قطعات تهران برآورد شده است. تخمین قیمت‌ها همگی بر اساس آخرین تغییرات بازار هستند.
                   </span>
                 </div>
               )}
@@ -554,6 +555,18 @@ export default function App() {
                   >
                     <MessageSquare className="w-4 h-4" />
                     <span>مشاوره و استعلام زنده</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleTabChange("maintenance")}
+                    className={`flex-1 py-3.5 px-4 text-xs font-bold rounded-xl transition-all duration-200 cursor-pointer text-center flex items-center justify-center gap-2 border ${
+                      activeTab === "maintenance"
+                        ? "bg-blue-600 text-white shadow-md border-blue-600 font-extrabold translate-y-[-1px]"
+                        : "bg-white text-slate-600 hover:text-slate-900 border-slate-200 hover:border-slate-350 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Wrench className="w-4 h-4" />
+                    <span>دفترچه سرویس و نگهداری</span>
                   </button>
                 </div>
 
@@ -720,6 +733,11 @@ export default function App() {
                     prefilledPrompt={prefilledPrompt}
                     onClearPrefilled={() => setPrefilledPrompt("")}
                   />
+                )}
+
+                {/* Tab 4: Local storage based Maintenance Schedule Tracker */}
+                {activeTab === "maintenance" && (
+                  <MaintenanceTracker currentCarModel={result.carModelName} />
                 )}
               </div>
 
