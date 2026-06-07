@@ -752,6 +752,50 @@ function postProcessOutput(output: any): any {
   return output;
 }
 
+// Temporary debugging endpoint to diagnose Gemini environment/API key issues
+app.get("/api/debug-env", async (req, res) => {
+  const k = process.env.GEMINI_API_KEY || "";
+  const keyInfo = {
+    present: k.length > 0,
+    length: k.length,
+    start: k ? k.substring(0, 4) + "..." : "none",
+    end: k ? "..." + k.substring(k.length - 4) : "none"
+  };
+
+  let testResult = "Not Run";
+  let testError = null;
+
+  if (ai) {
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: "Say hello",
+      });
+      testResult = response.text || "Success (empty text)";
+    } catch (e: any) {
+      testResult = "Failed";
+      testError = {
+        message: e.message,
+        name: e.name,
+        stack: e.stack,
+        code: e.code,
+        status: e.status,
+        details: e.details
+      };
+    }
+  } else {
+    testResult = "ai client is null (no GEMINI_API_KEY on startup)";
+  }
+
+  return res.json({
+    geminiKey: keyInfo,
+    aiClientInitialized: ai !== null,
+    testResult,
+    testError,
+    processEnvKeys: Object.keys(process.env).filter(key => key.includes("KEY") || key.includes("API") || key.includes("URL") || key.includes("ENV"))
+  });
+});
+
 // API endpoint to get car consumable parts in Persian
 app.post("/api/car-parts", async (req, res) => {
   const { carModel, specifications } = req.body;
@@ -891,8 +935,10 @@ app.post("/api/car-parts", async (req, res) => {
     };
 
     let finalJSONOutput: any = null;
+    let errorsLog: any[] = [];
 
     if (ai) {
+      // Attempt 1: gemini-3.5-flash with Search Grounding (ideal but high rate of quota exhaustion on standard keys)
       try {
         console.log("Attempting Generation: gemini-3.5-flash + search...");
         const response = await ai.models.generateContent({
@@ -906,54 +952,75 @@ app.post("/api/car-parts", async (req, res) => {
         if (response.text) finalJSONOutput = JSON.parse(response.text.trim());
       } catch (err1: any) {
         console.warn("Attempt 1 failed (gemini-3.5-flash + googleSearch):", err1.message || err1);
-        if (isQuotaError(err1)) {
-          console.warn("Detected Gemini quota exhaustion (429/RESOURCE_EXHAUSTED). Skipping subsequent Gemini models to bypass wait times.");
-        } else {
-          try {
-            console.log("Attempting Fallback 1: gemini-3.1-flash-lite + search...");
-            const response = await ai.models.generateContent({
-              model: "gemini-3.1-flash-lite",
-              contents: prompt,
-              config: {
-                ...configBase,
-                tools: [{ googleSearch: {} }],
-              },
-            });
-            if (response.text) finalJSONOutput = JSON.parse(response.text.trim());
-          } catch (err2: any) {
-            console.warn("Attempt 2 failed (gemini-3.1-flash-lite + googleSearch):", err2.message || err2);
-            if (isQuotaError(err2)) {
-              console.warn("Detected Gemini quota exhaustion on Attempt 2. Skipping remaining models.");
-            } else {
-              try {
-                console.log("Attempting Fallback 2: gemini-3.5-flash WITHOUT search...");
-                const response = await ai.models.generateContent({
-                  model: "gemini-3.5-flash",
-                  contents: prompt,
-                  config: configBase,
-                });
-                if (response.text) finalJSONOutput = JSON.parse(response.text.trim());
-              } catch (err3: any) {
-                console.warn("Attempt 3 failed (gemini-3.5-flash without googleSearch):", err3.message || err3);
-                if (isQuotaError(err3)) {
-                  console.warn("Detected Gemini quota exhaustion on Attempt 3. Skipping remaining models.");
-                } else {
-                  try {
-                    console.log("Attempting Final Fallback 3: gemini-3.1-flash-lite WITHOUT search...");
-                    const response = await ai.models.generateContent({
-                      model: "gemini-3.1-flash-lite",
-                      contents: prompt,
-                      config: configBase,
-                    });
-                    if (response.text) finalJSONOutput = JSON.parse(response.text.trim());
-                  } catch (err4) {
-                    console.warn("All Gemini fallbacks failed:", err4);
-                  }
-                }
-              }
-            }
-          }
+        errorsLog.push({
+          attempt: 1,
+          model: "gemini-3.5-flash + googleSearch",
+          message: err1.message,
+          name: err1.name,
+          status: err1.status,
+          code: err1.code,
+          details: JSON.stringify(err1.details || "")
+        });
+      }
+
+      // Fallback 1: gemini-3.5-flash WITHOUT search (extremely reliable, free, uses standard user API key quota)
+      if (!finalJSONOutput) {
+        try {
+          console.log("Attempting Fallback 1: gemini-3.5-flash WITHOUT search (standard key quota)...");
+          const response = await ai.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: prompt,
+            config: configBase,
+          });
+          if (response.text) finalJSONOutput = JSON.parse(response.text.trim());
+        } catch (err2: any) {
+          console.warn("Fallback 1 failed (gemini-3.5-flash without search):", err2.message || err2);
+          errorsLog.push({
+            attempt: 2,
+            model: "gemini-3.5-flash without googleSearch",
+            message: err2.message,
+            name: err2.name,
+            status: err2.status,
+            code: err2.code,
+            details: JSON.stringify(err2.details || "")
+          });
         }
+      }
+
+      // Fallback 2: gemini-3.1-flash-lite WITHOUT search
+      if (!finalJSONOutput) {
+        try {
+          console.log("Attempting Fallback 2: gemini-3.1-flash-lite WITHOUT search...");
+          const response = await ai.models.generateContent({
+            model: "gemini-3.1-flash-lite",
+            contents: prompt,
+            config: configBase,
+          });
+          if (response.text) finalJSONOutput = JSON.parse(response.text.trim());
+        } catch (err3: any) {
+          console.warn("Fallback 2 failed (gemini-3.1-flash-lite without search):", err3.message || err3);
+          errorsLog.push({
+            attempt: 3,
+            model: "gemini-3.1-flash-lite without googleSearch",
+            message: err3.message,
+            name: err3.name,
+            status: err3.status,
+            code: err3.code,
+            details: JSON.stringify(err3.details || "")
+          });
+        }
+      }
+    }
+
+    if (!finalJSONOutput) {
+      try {
+        const fs = await import("fs");
+        fs.writeFileSync(
+          path.join(process.cwd(), "car-parts-errors.json"),
+          JSON.stringify({ timestamp: new Date().toISOString(), errorsLog }, null, 2)
+        );
+      } catch (logErr) {
+        console.error("Failed to write car-parts-errors.json:", logErr);
       }
     }
 
@@ -1028,6 +1095,7 @@ app.post("/api/car-parts/chat", async (req, res) => {
     let chatReply: string | null = null;
 
     if (ai) {
+      // Chat Attempt 1: gemini-3.5-flash with Search Grounding
       try {
         console.log("Chat Attempt 1: gemini-3.5-flash + search...");
         const chat = ai.chats.create({
@@ -1040,55 +1108,40 @@ app.post("/api/car-parts/chat", async (req, res) => {
         const response = await chat.sendMessage({ message: userMessage });
         chatReply = response.text;
       } catch (chatErr1: any) {
-        console.warn("Chat Attempt 1 failed, trying chat Fallback 1: gemini-3.1-flash-lite + search...", chatErr1.message || chatErr1);
-        if (isQuotaError(chatErr1)) {
-          console.warn("Detected Gemini quota exhaustion (429/RESOURCE_EXHAUSTED) in Chat Attempt 1. Skipping other Gemini models.");
-        } else {
-          try {
-            const chat = ai.chats.create({
-              model: "gemini-3.1-flash-lite",
-              config: {
-                systemInstruction: chatInstruction,
-                tools: [{ googleSearch: {} }],
-              },
-            });
-            const response = await chat.sendMessage({ message: userMessage });
-            chatReply = response.text;
-          } catch (chatErr2: any) {
-            console.warn("Chat Attempt 2 failed, trying chat Fallback 2: gemini-3.5-flash WITHOUT search...", chatErr2.message || chatErr2);
-            if (isQuotaError(chatErr2)) {
-              console.warn("Detected Gemini quota exhaustion in Chat Attempt 2. Skipping remaining models.");
-            } else {
-              try {
-                const chat = ai.chats.create({
-                  model: "gemini-3.5-flash",
-                  config: {
-                    systemInstruction: chatInstruction,
-                  },
-                });
-                const response = await chat.sendMessage({ message: userMessage });
-                chatReply = response.text;
-              } catch (chatErr3: any) {
-                console.warn("Chat Attempt 3 failed, trying chat Fallback 3: gemini-3.1-flash-lite WITHOUT search...", chatErr3.message || chatErr3);
-                if (isQuotaError(chatErr3)) {
-                  console.warn("Detected Gemini quota exhaustion in Chat Attempt 3. Skipping remaining models.");
-                } else {
-                  try {
-                    const chat = ai.chats.create({
-                      model: "gemini-3.1-flash-lite",
-                      config: {
-                        systemInstruction: chatInstruction,
-                      },
-                    });
-                    const response = await chat.sendMessage({ message: userMessage });
-                    chatReply = response.text;
-                  } catch (chatErr4) {
-                    console.warn("All Gemini chat fallbacks failed.");
-                  }
-                }
-              }
-            }
-          }
+        console.warn("Chat Attempt 1 failed (gemini-3.5-flash + googleSearch):", chatErr1.message || chatErr1);
+      }
+
+      // Chat Fallback 1: gemini-3.5-flash WITHOUT search (extremely reliable, uses standard key quota)
+      if (!chatReply) {
+        try {
+          console.log("Chat Fallback 1: gemini-3.5-flash WITHOUT search...");
+          const chat = ai.chats.create({
+            model: "gemini-3.5-flash",
+            config: {
+              systemInstruction: chatInstruction,
+            },
+          });
+          const response = await chat.sendMessage({ message: userMessage });
+          chatReply = response.text;
+        } catch (chatErr2: any) {
+          console.warn("Chat Fallback 1 failed (gemini-3.5-flash without search):", chatErr2.message || chatErr2);
+        }
+      }
+
+      // Chat Fallback 2: gemini-3.1-flash-lite WITHOUT search
+      if (!chatReply) {
+        try {
+          console.log("Chat Fallback 2: gemini-3.1-flash-lite WITHOUT search...");
+          const chat = ai.chats.create({
+            model: "gemini-3.1-flash-lite",
+            config: {
+              systemInstruction: chatInstruction,
+            },
+          });
+          const response = await chat.sendMessage({ message: userMessage });
+          chatReply = response.text;
+        } catch (chatErr3: any) {
+          console.warn("Chat Fallback 2 failed (gemini-3.1-flash-lite without search):", chatErr3.message || chatErr3);
         }
       }
     }
@@ -1167,6 +1220,58 @@ app.post("/api/car-parts/chat", async (req, res) => {
 
 // Vite middleware configuration for development vs serving built static assets in Production
 async function bootstrap() {
+  // Run startup diagnostics and write to a file we can inspect
+  try {
+    const fs = await import("fs");
+    const k = process.env.GEMINI_API_KEY || "";
+    const keyInfo = {
+      present: k.length > 0,
+      length: k.length,
+      start: k ? k.substring(0, 4) + "..." : "none",
+      end: k ? "..." + k.substring(k.length - 4) : "none"
+    };
+
+    let testResult = "Not Run";
+    let testError = null;
+
+    if (ai) {
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: "Say hello",
+        });
+        testResult = response.text || "Success (empty text)";
+      } catch (e: any) {
+        testResult = "Failed";
+        testError = {
+          message: e.message,
+          name: e.name,
+          stack: e.stack,
+          code: e.code,
+          status: e.status,
+          details: JSON.stringify(e.details || "")
+        };
+      }
+    } else {
+      testResult = "ai client is null (no GEMINI_API_KEY on startup)";
+    }
+
+    fs.writeFileSync(
+      path.join(process.cwd(), "debug-output.json"),
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        geminiKey: keyInfo,
+        aiClientInitialized: ai !== null,
+        testResult,
+        testError,
+        processEnvKeys: Object.keys(process.env).filter(key => key.includes("KEY") || key.includes("API") || key.includes("URL") || key.includes("ENV"))
+      }, null, 2)
+    );
+    console.log("📝 Diagnostic JSON written to debug-output.json successfully.");
+  } catch (err) {
+    console.error("Failed to write diagnostic:", err);
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
