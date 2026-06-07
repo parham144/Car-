@@ -39,6 +39,16 @@ export interface SearchHistoryItem {
   timestamp: string;
 }
 
+export interface FavoritePart {
+  id: string; // Unique id, e.g., carModel + "_" + partName
+  carModel: string;
+  partName: string;
+  priceRange: PriceRange;
+  lifetime: string;
+  suggestedBrands: string[];
+  proTip: string;
+}
+
 export interface ChatMessage {
   sender: "user" | "mechanic" | "system";
   text: string;

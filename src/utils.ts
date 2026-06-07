@@ -60,3 +60,48 @@ export function clearSearchHistory(): void {
     console.error("Error clearing search history", error);
   }
 }
+
+// Load Favorites safely from localStorage
+import { FavoritePart } from "./types";
+
+export function loadFavorites(): FavoritePart[] {
+  try {
+    const data = localStorage.getItem("car_parts_favorites");
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error("Failed to load favorites", error);
+    return [];
+  }
+}
+
+// Toggle a favorite part in localStorage
+export function toggleFavorite(part: Omit<FavoritePart, "id">): FavoritePart[] {
+  try {
+    const favorites = loadFavorites();
+    const id = `${part.carModel.trim()}_${part.partName.trim()}`.toLowerCase();
+    const exists = favorites.some((item) => item.id === id);
+    
+    let updated: FavoritePart[];
+    if (exists) {
+      updated = favorites.filter((item) => item.id !== id);
+    } else {
+      updated = [...favorites, { ...part, id }];
+    }
+    
+    localStorage.setItem("car_parts_favorites", JSON.stringify(updated));
+    return updated;
+  } catch (error) {
+    console.error("Failed to toggle favorite", error);
+    return [];
+  }
+}
+
+// Clear all favorites from localStorage
+export function clearFavorites(): void {
+  try {
+    localStorage.removeItem("car_parts_favorites");
+  } catch (error) {
+    console.error("Error clearing favorites", error);
+  }
+}
+
